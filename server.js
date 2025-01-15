@@ -1,77 +1,41 @@
+require('dotenv').config();
+
 const express = require('express');
 const http = require('http');
-const { Server } = require('socket.io');
-const ShareDB = require('sharedb');
+const cors = require('cors');
+const allowedOrigins = process.env.ALLOWED_ORIGINS && process.env.ALLOWED_ORIGINS.split(",") || '*';
+
+const socketServer = require('./socket');
+const events = require('./events');
 
 const app = express();
 const server = http.createServer(app);
-const io = new Server(server, { cors: { origin: '*' } });
 
-const sharedb = new ShareDB();
-const connection = sharedb.connect();
+app.use(express.json());
+app.use(cors({ origin: allowedOrigins, methods: ['GET', 'POST'] }));
 
-const activeDocuments = new Map();
+// Initialize Socket.IO server
+socketServer.initialize(server);
 
-const socketHandlers = {};
+// Webhook Endpoint
+app.post('/api/webhook/:eventName', events.webhookEventWithData);
+app.post('/api/webhook/:eventName/:roomId', events.webhookToRoomWithData);
 
-function registerHandler(eventKey, callback) {
-  socketHandlers[eventKey] = callback;
-}
+// Event without data
+app.get('/api/socket/:eventName/:roomId', events.socketRoomEventTrigger);
+app.get('/api/socket/:eventName', events.socketEventTrigger);
 
-function initializeSocketServer() {
-  io.on('connection', (socket) => {
-    console.log('New client connected');
-
-    Object.keys(socketHandlers).forEach((eventKey) => {
-      socket.on(eventKey, (...args) => {
-        socketHandlers[eventKey](socket, ...args);
-      });
-    });
-
-    socket.on('disconnect', () => {
-      console.log('Client disconnected');
-    });
-  });
-}
-
-registerHandler('joinDocument', (socket, docId) => {
-  console.log(`Client joined document: ${docId}`);
-
-  let doc = activeDocuments.get(docId);
-  if (!doc) {
-    doc = connection.get('documents', docId);
-    activeDocuments.set(docId, doc);
-
-    doc.fetch((err) => {
-      if (err) throw err;
-      if (!doc.type) {
-        doc.create({ content: '' }, 'ot-text');
-      }
-    });
-  }
-  
-  doc.subscribe((err) => {
-    if (err) throw err;
-
-    socket.emit('init', { content: doc.data.content });
-
-    socket.on('submitOp', (op) => {
-      doc.submitOp(op);
-    });
-  });
-
-  socket.on('disconnect', () => {
-    console.log(`Client left document: ${docId}`);
-    doc.unsubscribe();
-  });
-});
-
+// Root Endpoint
 app.get('/', (req, res) => {
-  res.send('Socket.IO server is running');
+    res.send('Socket.IO service is running');
 });
 
+app.all('*', (req, res) => {
+    res.send('Invalid route');
+});
+
+// Start the server
 const PORT = process.env.PORT || 1243;
 server.listen(PORT, () => {
-  console.log(`Server is running on port ${PORT}`);
-  initializeSocketServer();
+    console.log(`Server is running on port ${PORT}`);
 });

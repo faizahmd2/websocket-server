@@ -5,10 +5,7 @@
 
 # Node artifact files
 node_modules/
-config/env/
 .vscode/
-projects/utils/files/
-files/
 .env
 
 # Compiled Java class files
