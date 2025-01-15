@@ -2,24 +2,11 @@ require('dotenv').config();
 
 const express = require('express');
 const http = require('http');
-const allowedHosts = process.env.ALLOWED_HOSTS.split(",");
 
 const socketServer = require('./socket');
 const events = require('./events');
 
 const app = express();
-app.use((req, res, next) => {
-    const origin = req.headers.origin || req.headers.referer || req.headers.host;
-    const isAllowed = allowedHosts.some((allowedHost) => origin && origin.startsWith(allowedHost));
-
-    if (isAllowed) {
-        next();
-    } else {
-        console.log(`Blocked request from origin: ${origin}`);
-        res.status(403).send('Forbidden: Invalid Host/Origin');
-    }
-})
-
 const server = http.createServer(app);
 
 app.use(express.json());
