@@ -1,13 +1,13 @@
 const { Server } = require('socket.io');
 let io = null;
 
-const allowedOrigins = process.env.ALLOWED_ORIGINS && process.env.ALLOWED_ORIGINS.split(",") || '*';
+const allowedHosts = process.env.ALLOWED_HOSTS.split(",");
 
 // Initialize Socket.IO server
 function initialize(server) {
     io = new Server(server, {
         cors: {
-            origin: allowedOrigins,
+            origin: allowedHosts,
             methods: ['GET', 'POST'],
         },
     });
